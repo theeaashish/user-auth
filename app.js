@@ -50,12 +50,14 @@ app.post("/login", async (req, res) => {
   if (!user) return res.status(500).send("something went wrong");
 
   bcrypt.compare(password, user.password, (err, result) => {
+    // console.log(result);
+    // if (password != result.password) res.send("wrong credentials!");
     console.log(result);
     if (result) {
       let token = jwt.sign({ email: email, userid: user._id }, "secretkey");
       res.cookie("token", token);
-      res.status(200).send("login successful");
-    } else res.redirect("/login");
+      res.status(200).redirect("/profile");
+    } else res.send("wrong credentials!");
   });
 });
 
@@ -64,9 +66,26 @@ app.get("/logout", (req, res) => {
   res.redirect("/");
 });
 
-app.get("/profile", isLoggedIn, (req, res) => {
-  console.log(req.user);
-  res.render("login");
+app.get("/profile", isLoggedIn, async (req, res) => {
+  //   console.log(req.user);
+  let user = await userModel.findOne({ email: req.user.email }).populate("posts");
+  console.log(user)
+//   console.log(user);
+  res.render("profile", { user });
+});
+
+app.post("/post", isLoggedIn, async (req, res) => {
+  let user = await userModel.findOne({ email: req.user.email });
+  let { content } = req.body;
+
+  let post = await postModel.create({
+    user: user._id,
+    content,
+  });
+
+  user.posts.push(post._id);
+  await user.save();
+  res.redirect("/profile");
 });
 
 function isLoggedIn(req, res, next) {
